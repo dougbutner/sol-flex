@@ -22,7 +22,7 @@ pub fn handler(ctx: Context<Initialize>) -> Result<()> {
     let config = &mut ctx.accounts.config;
     let authority = ctx.accounts.authority.key();
 
-    *config = Config::new(authority);
+    **config = Config::new(authority);
 
     msg!("SolFlex program initialized with authority: {}", authority);
     Ok(())

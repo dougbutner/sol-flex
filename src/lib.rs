@@ -6,7 +6,7 @@ pub mod errors;
 pub mod instructions;
 pub mod state;
 
-declare_id!("YourProgramIDHere1111111111111111111111111111111");
+declare_id!("5im5SdEc2dg63B5C9vm83mwQqxGUAphG2K47uGgA69ZS");
 
 #[program]
 pub mod sol_flex {
@@ -32,10 +32,6 @@ pub mod sol_flex {
         instructions::reflect::handler(ctx)
     }
 
-    pub fn jupiter_swap(ctx: Context<JupiterSwap>, params: JupiterSwapParams) -> Result<()> {
-        instructions::jupiter_swap::handler(ctx, params)
-    }
-
     pub fn set_user_preferences(ctx: Context<SetUserPreferences>, params: SetUserPreferencesParams) -> Result<()> {
         instructions::set_user_preferences::handler(ctx, params)
     }
@@ -54,17 +50,5 @@ pub mod sol_flex {
 
     pub fn set_distribution_config(ctx: Context<SetDistributionConfig>, params: SetDistributionConfigParams) -> Result<()> {
         instructions::set_distribution_config::handler(ctx, params)
-    }
-
-    pub fn create_position(ctx: Context<CreatePosition>, params: CreatePositionParams) -> Result<()> {
-        instructions::position_tracking::create_position_handler(ctx, params)
-    }
-
-    pub fn update_position(ctx: Context<UpdatePosition>, params: UpdatePositionParams) -> Result<()> {
-        instructions::position_tracking::update_position_handler(ctx, params)
-    }
-
-    pub fn close_position(ctx: Context<ClosePosition>, params: ClosePositionParams) -> Result<()> {
-        instructions::position_tracking::close_position_handler(ctx, params)
     }
 }

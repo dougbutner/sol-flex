@@ -5,10 +5,13 @@ use anchor_lang::prelude::*;
 pub struct Config {
     pub authority: Pubkey,
     pub version: u8,
+    #[max_len(100)]
     pub blocklist: Vec<Pubkey>,
     pub is_initialized: bool,
     pub created_at: i64,
     pub updated_at: i64,
+    pub min_reflection_pool: u64, // Minimum reflection pool amount before sending
+    pub min_reflection_per_account: u64, // Minimum per-account amount to activate reflections
 }
 
 impl Config {
@@ -23,6 +26,8 @@ impl Config {
             is_initialized: true,
             created_at: clock.unix_timestamp,
             updated_at: clock.unix_timestamp,
+            min_reflection_pool: 100000, // 100,000 tokens minimum in reflection pool
+            min_reflection_per_account: 10000, // 10,000 tokens minimum per account
         }
     }
 

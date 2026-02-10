@@ -13,7 +13,7 @@ pub struct SetUserPreferencesParams {
 #[instruction(params: SetUserPreferencesParams)]
 pub struct SetUserPreferences<'info> {
     #[account(
-        init_if_needed,
+        init,
         payer = user,
         space = 8 + UserPreferences::INIT_SPACE,
         seeds = [UserPreferences::SEED_PREFIX, user.key().as_ref()],
@@ -35,10 +35,8 @@ pub fn handler(ctx: Context<SetUserPreferences>, params: SetUserPreferencesParam
     require!(params.tree_rate <= 10000, crate::errors::SolFlexError::InvalidParameters);
     require!(params.custom_memo.len() <= 200, crate::errors::SolFlexError::InvalidMemoLength);
 
-    // If this is a new account, initialize it
-    if user_preferences.owner == Pubkey::default() {
-        *user_preferences = UserPreferences::new(user.key());
-    }
+    // Initialize the user preferences
+    **user_preferences = UserPreferences::new(user.key());
 
     // Update preferences
     user_preferences.preferred_token_mint = params.preferred_token_mint;

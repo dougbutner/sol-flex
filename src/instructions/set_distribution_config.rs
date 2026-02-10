@@ -49,7 +49,7 @@ pub fn handler(ctx: Context<SetDistributionConfig>, params: SetDistributionConfi
     require!(params.limit > 0 && params.limit <= 1000, crate::errors::SolFlexError::InvalidParameters);
 
     // Initialize the distribution config
-    *distribution_config = DistributionConfig::new(
+    **distribution_config = DistributionConfig::new(
         params.token_mint,
         params.project_account,
         params.dev_account,

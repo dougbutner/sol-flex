@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use std::collections::BTreeMap;
 
 #[account]
 #[derive(InitSpace)]
@@ -62,6 +61,7 @@ impl TokenPool {
 pub struct UserPreferences {
     pub owner: Pubkey,
     pub preferred_token_mint: Pubkey, // User's preferred reflection token
+    #[max_len(200)]
     pub custom_memo: String, // Custom memo for reflections
     pub tree_parent: Pubkey, // Inheritance tree parent
     pub tree_rate: u16, // Inheritance rate (0-10000 basis points)
@@ -88,11 +88,12 @@ impl UserPreferences {
     }
 }
 
-// Global token pools registry (uses BTreeMap for efficient lookups)
+// Global token pools registry (uses Vec for Anchor compatibility)
 #[account]
 #[derive(InitSpace)]
 pub struct GlobalTokenPools {
-    pub pools: BTreeMap<u64, TokenPool>,
+    #[max_len(100)]
+    pub pools: Vec<TokenPool>,
     pub next_pool_id: u64,
     pub authority: Pubkey,
     pub created_at: i64,
@@ -105,7 +106,7 @@ impl GlobalTokenPools {
     pub fn new(authority: Pubkey) -> Self {
         let clock = Clock::get().unwrap();
         Self {
-            pools: BTreeMap::new(),
+            pools: Vec::new(),
             next_pool_id: 1,
             authority,
             created_at: clock.unix_timestamp,
@@ -114,20 +115,24 @@ impl GlobalTokenPools {
     }
 
     pub fn add_pool(&mut self, pool: TokenPool) -> Result<()> {
-        require!(!self.pools.contains_key(&pool.pool_id), crate::errors::SolFlexError::PoolAlreadyExists);
-        self.pools.insert(pool.pool_id, pool);
+        require!(self.pools.len() < 100, crate::errors::SolFlexError::InvalidParameters);
+        require!(!self.pools.iter().any(|p| p.pool_id == pool.pool_id), crate::errors::SolFlexError::PoolAlreadyExists);
+        self.pools.push(pool);
         self.updated_at = Clock::get().unwrap().unix_timestamp;
         Ok(())
     }
 
     pub fn remove_pool(&mut self, pool_id: u64) -> Result<()> {
-        require!(self.pools.remove(&pool_id).is_some(), crate::errors::SolFlexError::PoolNotFound);
+        let position = self.pools.iter().position(|p| p.pool_id == pool_id)
+            .ok_or(crate::errors::SolFlexError::PoolNotFound)?;
+        self.pools.remove(position);
         self.updated_at = Clock::get().unwrap().unix_timestamp;
         Ok(())
     }
 
     pub fn get_pool(&self, pool_id: u64) -> Result<&TokenPool> {
-        self.pools.get(&pool_id).ok_or(crate::errors::SolFlexError::PoolNotFound.into())
+        self.pools.iter().find(|p| p.pool_id == pool_id)
+            .ok_or(crate::errors::SolFlexError::PoolNotFound.into())
     }
 
     pub fn get_next_pool_id(&mut self) -> u64 {
