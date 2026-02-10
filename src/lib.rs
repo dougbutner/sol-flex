@@ -28,7 +28,43 @@ pub mod sol_flex {
         instructions::remove_from_blocklist::handler(ctx, params)
     }
 
-    pub fn reflect(ctx: Context<Reflect>, params: ReflectParams) -> Result<()> {
-        instructions::reflect::handler(ctx, params)
+    pub fn reflect(ctx: Context<Reflect>) -> Result<()> {
+        instructions::reflect::handler(ctx)
+    }
+
+    pub fn jupiter_swap(ctx: Context<JupiterSwap>, params: JupiterSwapParams) -> Result<()> {
+        instructions::jupiter_swap::handler(ctx, params)
+    }
+
+    pub fn set_user_preferences(ctx: Context<SetUserPreferences>, params: SetUserPreferencesParams) -> Result<()> {
+        instructions::set_user_preferences::handler(ctx, params)
+    }
+
+    pub fn ban_user(ctx: Context<BanUser>, params: BanUserParams) -> Result<()> {
+        instructions::ban_user::handler(ctx, params)
+    }
+
+    pub fn add_pool(ctx: Context<AddPool>, params: AddPoolParams) -> Result<()> {
+        instructions::manage_pool::add_pool_handler(ctx, params)
+    }
+
+    pub fn remove_pool(ctx: Context<RemovePool>, params: RemovePoolParams) -> Result<()> {
+        instructions::manage_pool::remove_pool_handler(ctx, params)
+    }
+
+    pub fn set_distribution_config(ctx: Context<SetDistributionConfig>, params: SetDistributionConfigParams) -> Result<()> {
+        instructions::set_distribution_config::handler(ctx, params)
+    }
+
+    pub fn create_position(ctx: Context<CreatePosition>, params: CreatePositionParams) -> Result<()> {
+        instructions::position_tracking::create_position_handler(ctx, params)
+    }
+
+    pub fn update_position(ctx: Context<UpdatePosition>, params: UpdatePositionParams) -> Result<()> {
+        instructions::position_tracking::update_position_handler(ctx, params)
+    }
+
+    pub fn close_position(ctx: Context<ClosePosition>, params: ClosePositionParams) -> Result<()> {
+        instructions::position_tracking::close_position_handler(ctx, params)
     }
 }

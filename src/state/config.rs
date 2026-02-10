@@ -12,7 +12,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub const SEED_PREFIX: &'static [u8] = b"config";
+    pub const SEED_PREFIX: &'static [u8] = crate::constants::CONFIG_SEED;
 
     pub fn new(authority: Pubkey) -> Self {
         let clock = Clock::get().unwrap();

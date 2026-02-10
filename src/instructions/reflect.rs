@@ -1,14 +1,9 @@
 use anchor_lang::prelude::*;
-use crate::state::Config;
-
-#[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct ReflectParams {
-    pub amount: u64,
-    pub recipient: Pubkey,
-}
+use anchor_spl::token::{self, Token, TokenAccount, Transfer};
+use crate::state::{DistributionConfig, FeePool, UserPreferences, GlobalTokenPools, Config};
+use std::collections::BTreeMap;
 
 #[derive(Accounts)]
-#[instruction(params: ReflectParams)]
 pub struct Reflect<'info> {
     #[account(
         seeds = [Config::SEED_PREFIX],
@@ -16,46 +11,81 @@ pub struct Reflect<'info> {
     )]
     pub config: Account<'info, Config>,
 
-    #[account(mut)]
-    pub user: Signer<'info>,
+    #[account(
+        seeds = [DistributionConfig::SEED_PREFIX],
+        bump
+    )]
+    pub distribution_config: Account<'info, DistributionConfig>,
 
     #[account(
         mut,
-        constraint = recipient.key() == params.recipient
+        seeds = [FeePool::SEED_PREFIX],
+        bump
     )]
-    pub recipient: SystemAccount<'info>,
+    pub fee_pool: Account<'info, FeePool>,
 
+    #[account(
+        mut,
+        seeds = [GlobalTokenPools::SEED_PREFIX],
+        bump
+    )]
+    pub global_pools: Account<'info, GlobalTokenPools>,
+
+    /// CHECK: Authority account
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<Reflect>, params: ReflectParams) -> Result<()> {
-    let config = &ctx.accounts.config;
-    let user = &ctx.accounts.user;
+pub fn handler(ctx: Context<Reflect>) -> Result<()> {
+    let _config = &ctx.accounts.config;
+    let distribution_config = &mut ctx.accounts.distribution_config;
+    let fee_pool = &mut ctx.accounts.fee_pool;
+    let _global_pools = &ctx.accounts.global_pools;
 
-    // Check if user is blocklisted
-    require!(!config.is_blocklisted(user.key()), crate::errors::SolFlexError::Unauthorized);
+    // Check if there are reflections to distribute
+    require!(fee_pool.reflection_pool > 0, crate::errors::SolFlexError::NoReflectionsToDistribute);
 
-    // Validate parameters
-    require!(params.amount > 0, crate::errors::SolFlexError::InvalidParameters);
+    // For now, we'll implement a simplified version
+    // In a full implementation, this would:
+    // 1. Iterate through user preferences (with pagination)
+    // 2. Calculate each user's share
+    // 3. Perform Jupiter swaps to convert fees to user's preferred tokens
+    // 4. Distribute the tokens
 
-    // Perform the reflection logic (transfer SOL)
-    let transfer_ix = anchor_lang::system_program::Transfer {
-        from: ctx.accounts.user.to_account_info(),
-        to: ctx.accounts.recipient.to_account_info(),
-    };
+    // Placeholder logic - distribute a portion of the reflection pool
+    let amount_to_distribute = fee_pool.reflection_pool / 10; // Distribute 10% at a time
 
-    anchor_lang::system_program::transfer(
-        CpiContext::new(
-            ctx.accounts.system_program.to_account_info(),
-            transfer_ix,
-        ),
-        params.amount,
-    )?;
+    if amount_to_distribute > 0 {
+        // TODO: Implement actual distribution logic with Jupiter swaps
+        // This would involve:
+        // - Finding users who should receive reflections
+        // - Calculating their proportional shares
+        // - Using Jupiter to swap base tokens to their preferred tokens
+        // - Transferring the swapped tokens to users
 
-    msg!("Reflection executed: {} SOL transferred from {} to {}",
-         params.amount,
-         user.key(),
-         params.recipient);
+        fee_pool.distribute_reflection(amount_to_distribute)?;
+
+        msg!("Distributed {} tokens in reflections", amount_to_distribute);
+    }
+
+    // Handle burn and project fees
+    if fee_pool.burn_pool > 0 {
+        // TODO: Implement burn logic (could send to a burn address)
+        msg!("Burned {} tokens", fee_pool.burn_pool);
+    }
+
+    if fee_pool.project_pool > 0 && distribution_config.project_account != Pubkey::default() {
+        // TODO: Transfer project fees to project account
+        msg!("Distributed {} tokens to project account", fee_pool.project_pool);
+    }
+
+    // Clear the pools after distribution
+    fee_pool.clear_pools();
+
+    msg!("Reflection distribution completed");
 
     Ok(())
 }

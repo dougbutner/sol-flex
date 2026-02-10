@@ -22,4 +22,22 @@ pub enum SolFlexError {
 
     #[msg("Arithmetic overflow")]
     ArithmeticOverflow,
+
+    #[msg("Pool already exists")]
+    PoolAlreadyExists,
+
+    #[msg("Pool not found")]
+    PoolNotFound,
+
+    #[msg("Insufficient funds")]
+    InsufficientFunds,
+
+    #[msg("No reflections to distribute")]
+    NoReflectionsToDistribute,
+
+    #[msg("Invalid memo length")]
+    InvalidMemoLength,
+
+    #[msg("Account not found")]
+    AccountNotFound,
 }
