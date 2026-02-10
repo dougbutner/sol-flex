@@ -1,0 +1,39 @@
+# Rust build artifacts
+target/
+Cargo.lock
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Anchor/Solana specific
+.anchor/
+node_modules/
+dist/
+build/
+test-ledger/
+
+# Temporary files
+*.tmp
+*.temp

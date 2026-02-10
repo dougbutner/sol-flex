@@ -1,6 +1,0 @@
-/Users/fresh/Dropbox/htdocs/sol-flex/target/debug/deps/solana_security_txt-0bd9b91a838b440f.d: /var/folders/dh/k33wsr015_b6pk5c26c07prw0000gn/T/cursor-sandbox-cache/23883511981866bbacb8d6c0a0f26f13/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-security-txt-1.1.2/src/lib.rs /var/folders/dh/k33wsr015_b6pk5c26c07prw0000gn/T/cursor-sandbox-cache/23883511981866bbacb8d6c0a0f26f13/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-security-txt-1.1.2/src/../README.md
-
-/Users/fresh/Dropbox/htdocs/sol-flex/target/debug/deps/libsolana_security_txt-0bd9b91a838b440f.rmeta: /var/folders/dh/k33wsr015_b6pk5c26c07prw0000gn/T/cursor-sandbox-cache/23883511981866bbacb8d6c0a0f26f13/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-security-txt-1.1.2/src/lib.rs /var/folders/dh/k33wsr015_b6pk5c26c07prw0000gn/T/cursor-sandbox-cache/23883511981866bbacb8d6c0a0f26f13/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-security-txt-1.1.2/src/../README.md
-
-/var/folders/dh/k33wsr015_b6pk5c26c07prw0000gn/T/cursor-sandbox-cache/23883511981866bbacb8d6c0a0f26f13/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-security-txt-1.1.2/src/lib.rs:
-/var/folders/dh/k33wsr015_b6pk5c26c07prw0000gn/T/cursor-sandbox-cache/23883511981866bbacb8d6c0a0f26f13/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-security-txt-1.1.2/src/../README.md:
