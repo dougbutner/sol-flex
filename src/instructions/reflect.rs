@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
-use crate::state::{DistributionConfig, FeePool, UserPreferences, GlobalTokenPools, Config};
-use std::collections::BTreeMap;
+use anchor_spl::token::Token;
+use crate::state::{DistributionConfig, FeePool, GlobalTokenPools, Config};
 
 #[derive(Accounts)]
 pub struct Reflect<'info> {
