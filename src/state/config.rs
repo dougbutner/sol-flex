@@ -52,4 +52,12 @@ impl Config {
     pub fn is_blocklisted(&self, account: Pubkey) -> bool {
         self.blocklist.contains(&account)
     }
+
+    pub fn update_config(&mut self, authority: Pubkey, min_reflection_pool: u64, min_reflection_per_account: u64) -> Result<()> {
+        self.authority = authority;
+        self.min_reflection_pool = min_reflection_pool;
+        self.min_reflection_per_account = min_reflection_per_account;
+        self.updated_at = Clock::get().unwrap().unix_timestamp;
+        Ok(())
+    }
 }

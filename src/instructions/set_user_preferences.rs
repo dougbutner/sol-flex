@@ -3,7 +3,7 @@ use crate::state::UserPreferences;
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct SetUserPreferencesParams {
-    pub preferred_token_mint: Pubkey,
+    pub preferred_pool_id: u64,
     pub custom_memo: String,
     pub tree_parent: Pubkey,
     pub tree_rate: u16,
@@ -39,7 +39,7 @@ pub fn handler(ctx: Context<SetUserPreferences>, params: SetUserPreferencesParam
     **user_preferences = UserPreferences::new(user.key());
 
     // Update preferences
-    user_preferences.preferred_token_mint = params.preferred_token_mint;
+    user_preferences.preferred_pool_id = params.preferred_pool_id;
     user_preferences.custom_memo = params.custom_memo;
     user_preferences.tree_parent = if params.tree_parent == Pubkey::default() {
         user.key()

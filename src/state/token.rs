@@ -60,7 +60,7 @@ impl TokenPool {
 #[derive(InitSpace)]
 pub struct UserPreferences {
     pub owner: Pubkey,
-    pub preferred_token_mint: Pubkey, // User's preferred reflection token
+    pub preferred_pool_id: u64, // User's preferred Jupiter swap pool ID (0 = default/no swap)
     #[max_len(200)]
     pub custom_memo: String, // Custom memo for reflections
     pub tree_parent: Pubkey, // Inheritance tree parent
@@ -77,7 +77,7 @@ impl UserPreferences {
         let clock = Clock::get().unwrap();
         Self {
             owner,
-            preferred_token_mint: Pubkey::default(),
+            preferred_pool_id: 0, // 0 = no preferred pool (default token)
             custom_memo: String::new(),
             tree_parent: owner,
             tree_rate: 10000, // 100% default
