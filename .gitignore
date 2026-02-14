@@ -37,3 +37,6 @@ test-ledger/
 # Temporary files
 *.tmp
 *.temp
+
+# Reference contracts
+Reference Contracts Do Not Modify/
