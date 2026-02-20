@@ -14,12 +14,13 @@ pub struct DistributionConfig {
     pub dev_account: Pubkey, // Account to receive dev fees
     pub created_at: i64,
     pub updated_at: i64,
+    pub bump: u8, // Store PDA bump seed for efficiency
 }
 
 impl DistributionConfig {
     pub const SEED_PREFIX: &'static [u8] = crate::constants::DISTRIBUTION_CONFIG_SEED;
 
-    pub fn new(token_mint: Pubkey, project_account: Pubkey, dev_account: Pubkey) -> Self {
+    pub fn new(token_mint: Pubkey, project_account: Pubkey, dev_account: Pubkey, bump: u8) -> Self {
         let clock = Clock::get().unwrap();
         Self {
             token_mint,
@@ -33,6 +34,7 @@ impl DistributionConfig {
             dev_account,
             created_at: clock.unix_timestamp,
             updated_at: clock.unix_timestamp,
+            bump,
         }
     }
 
@@ -60,12 +62,13 @@ pub struct FeePool {
     pub total_fees: u64, // Total accumulated fees
     pub created_at: i64,
     pub updated_at: i64,
+    pub bump: u8, // Store PDA bump seed for efficiency
 }
 
 impl FeePool {
     pub const SEED_PREFIX: &'static [u8] = crate::constants::FEE_POOL_SEED;
 
-    pub fn new(token_mint: Pubkey) -> Self {
+    pub fn new(token_mint: Pubkey, bump: u8) -> Self {
         let clock = Clock::get().unwrap();
         Self {
             token_mint,
@@ -76,6 +79,7 @@ impl FeePool {
             total_fees: 0,
             created_at: clock.unix_timestamp,
             updated_at: clock.unix_timestamp,
+            bump,
         }
     }
 

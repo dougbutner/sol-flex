@@ -12,7 +12,7 @@ pub struct BanUserParams {
 pub struct BanUser<'info> {
     #[account(
         seeds = [Config::SEED_PREFIX],
-        bump
+        bump = config.bump
     )]
     pub config: Account<'info, Config>,
 

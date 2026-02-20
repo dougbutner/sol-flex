@@ -21,8 +21,9 @@ pub struct Initialize<'info> {
 pub fn handler(ctx: Context<Initialize>) -> Result<()> {
     let config = &mut ctx.accounts.config;
     let authority = ctx.accounts.authority.key();
+    let bump = ctx.bumps.config;
 
-    **config = Config::new(authority);
+    **config = Config::new(authority, bump);
 
     msg!("SolFlex program initialized with authority: {}", authority);
     Ok(())

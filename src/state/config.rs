@@ -12,12 +12,13 @@ pub struct Config {
     pub updated_at: i64,
     pub min_reflection_pool: u64, // Minimum reflection pool amount before sending
     pub min_reflection_per_account: u64, // Minimum per-account amount to activate reflections
+    pub bump: u8, // Store PDA bump seed for efficiency
 }
 
 impl Config {
     pub const SEED_PREFIX: &'static [u8] = crate::constants::CONFIG_SEED;
 
-    pub fn new(authority: Pubkey) -> Self {
+    pub fn new(authority: Pubkey, bump: u8) -> Self {
         let clock = Clock::get().unwrap();
         Self {
             authority,
@@ -28,6 +29,7 @@ impl Config {
             updated_at: clock.unix_timestamp,
             min_reflection_pool: 100000, // 100,000 tokens minimum in reflection pool
             min_reflection_per_account: 10000, // 10,000 tokens minimum per account
+            bump,
         }
     }
 

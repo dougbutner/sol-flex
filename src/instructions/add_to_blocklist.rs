@@ -11,7 +11,7 @@ pub struct AddToBlocklist<'info> {
     #[account(
         mut,
         seeds = [Config::SEED_PREFIX],
-        bump,
+        bump = config.bump,
         has_one = authority
     )]
     pub config: Account<'info, Config>,

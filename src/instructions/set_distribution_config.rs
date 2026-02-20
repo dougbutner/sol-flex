@@ -18,7 +18,7 @@ pub struct SetDistributionConfigParams {
 pub struct SetDistributionConfig<'info> {
     #[account(
         seeds = [Config::SEED_PREFIX],
-        bump
+        bump = config.bump
     )]
     pub config: Account<'info, Config>,
 
@@ -49,10 +49,12 @@ pub fn handler(ctx: Context<SetDistributionConfig>, params: SetDistributionConfi
     require!(params.limit > 0 && params.limit <= 1000, crate::errors::SolFlexError::InvalidParameters);
 
     // Initialize the distribution config
+    let bump = ctx.bumps.distribution_config;
     **distribution_config = DistributionConfig::new(
         params.token_mint,
         params.project_account,
         params.dev_account,
+        bump,
     );
 
     // Update configuration

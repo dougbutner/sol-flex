@@ -6,27 +6,27 @@ use crate::state::{DistributionConfig, FeePool, GlobalTokenPools, Config};
 pub struct Reflect<'info> {
     #[account(
         seeds = [Config::SEED_PREFIX],
-        bump
+        bump = config.bump
     )]
     pub config: Account<'info, Config>,
 
     #[account(
         seeds = [DistributionConfig::SEED_PREFIX],
-        bump
+        bump = distribution_config.bump
     )]
     pub distribution_config: Account<'info, DistributionConfig>,
 
     #[account(
         mut,
         seeds = [FeePool::SEED_PREFIX],
-        bump
+        bump = fee_pool.bump
     )]
     pub fee_pool: Account<'info, FeePool>,
 
     #[account(
         mut,
         seeds = [GlobalTokenPools::SEED_PREFIX],
-        bump
+        bump = global_pools.bump
     )]
     pub global_pools: Account<'info, GlobalTokenPools>,
 

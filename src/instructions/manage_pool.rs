@@ -14,14 +14,14 @@ pub struct AddPoolParams {
 pub struct AddPool<'info> {
     #[account(
         seeds = [Config::SEED_PREFIX],
-        bump
+        bump = config.bump
     )]
     pub config: Account<'info, Config>,
 
     #[account(
         mut,
         seeds = [GlobalTokenPools::SEED_PREFIX],
-        bump
+        bump = global_pools.bump
     )]
     pub global_pools: Account<'info, GlobalTokenPools>,
 
@@ -65,14 +65,14 @@ pub struct RemovePoolParams {
 pub struct RemovePool<'info> {
     #[account(
         seeds = [Config::SEED_PREFIX],
-        bump
+        bump = config.bump
     )]
     pub config: Account<'info, Config>,
 
     #[account(
         mut,
         seeds = [GlobalTokenPools::SEED_PREFIX],
-        bump
+        bump = global_pools.bump
     )]
     pub global_pools: Account<'info, GlobalTokenPools>,
 

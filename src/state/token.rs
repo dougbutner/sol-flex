@@ -98,12 +98,13 @@ pub struct GlobalTokenPools {
     pub authority: Pubkey,
     pub created_at: i64,
     pub updated_at: i64,
+    pub bump: u8, // Store PDA bump seed for efficiency
 }
 
 impl GlobalTokenPools {
     pub const SEED_PREFIX: &'static [u8] = crate::constants::GLOBAL_POOLS_SEED;
 
-    pub fn new(authority: Pubkey) -> Self {
+    pub fn new(authority: Pubkey, bump: u8) -> Self {
         let clock = Clock::get().unwrap();
         Self {
             pools: Vec::new(),
@@ -111,6 +112,7 @@ impl GlobalTokenPools {
             authority,
             created_at: clock.unix_timestamp,
             updated_at: clock.unix_timestamp,
+            bump,
         }
     }
 
