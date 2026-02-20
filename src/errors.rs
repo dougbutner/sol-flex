@@ -40,4 +40,14 @@ pub enum SolFlexError {
 
     #[msg("Account not found")]
     AccountNotFound,
+
+    #[msg("Invalid remaining accounts layout")]
+    InvalidRemainingAccounts,
+
+    #[msg("Invalid token account provided")]
+    InvalidTokenAccount,
+
+    #[msg("No eligible accounts in this batch")]
+    NoEligibleAccounts,
+
 }

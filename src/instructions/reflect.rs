@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::Token;
-use crate::state::{DistributionConfig, FeePool, GlobalTokenPools, Config};
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
+use crate::state::{Config, DistributionConfig, FeePool, GlobalTokenPools, UserPreferences};
 
 #[derive(Accounts)]
 pub struct Reflect<'info> {
@@ -25,6 +25,18 @@ pub struct Reflect<'info> {
 
     #[account(
         mut,
+        constraint = fee_vault.mint == distribution_config.token_mint @ crate::errors::SolFlexError::InvalidTokenAccount,
+        constraint = fee_vault.owner == fee_pool.key() @ crate::errors::SolFlexError::InvalidTokenAccount
+    )]
+    pub fee_vault: Account<'info, TokenAccount>,
+
+    #[account(
+        constraint = token_mint.key() == distribution_config.token_mint @ crate::errors::SolFlexError::InvalidTokenAccount
+    )]
+    pub token_mint: Account<'info, Mint>,
+
+    #[account(
+        mut,
         seeds = [GlobalTokenPools::SEED_PREFIX],
         bump = global_pools.bump
     )]
@@ -39,50 +51,126 @@ pub struct Reflect<'info> {
 }
 
 pub fn handler(ctx: Context<Reflect>) -> Result<()> {
-    let _config = &ctx.accounts.config;
+    let config = &ctx.accounts.config;
     let distribution_config = &mut ctx.accounts.distribution_config;
     let fee_pool = &mut ctx.accounts.fee_pool;
-    let _global_pools = &ctx.accounts.global_pools;
+    let global_pools = &ctx.accounts.global_pools;
+    let fee_vault = &ctx.accounts.fee_vault;
+
+    require!(
+        ctx.accounts.authority.key() == config.authority,
+        crate::errors::SolFlexError::Unauthorized
+    );
 
     // Check if there are sufficient reflections to distribute
-    require!(fee_pool.reflection_pool >= _config.min_reflection_pool, crate::errors::SolFlexError::NoReflectionsToDistribute);
+    require!(
+        fee_pool.reflection_pool >= config.min_reflection_pool,
+        crate::errors::SolFlexError::NoReflectionsToDistribute
+    );
 
-    msg!("Reflection distribution: pool minimum={}, per-account minimum={}", _config.min_reflection_pool, _config.min_reflection_per_account);
+    msg!(
+        "Reflection distribution: pool minimum={}, per-account minimum={}, batch limit={}",
+        config.min_reflection_pool,
+        config.min_reflection_per_account,
+        distribution_config.limit
+    );
 
-    // Placeholder logic - distribute a portion of the reflection pool
-    let amount_to_distribute = fee_pool.reflection_pool / 10; // Distribute 10% at a time
+    // Remaining accounts layout:
+    // [user_preferences, recipient_token_account, user_preferences, recipient_token_account, ...]
+    require!(
+        ctx.remaining_accounts.len() % 2 == 0,
+        crate::errors::SolFlexError::InvalidRemainingAccounts
+    );
 
-    if amount_to_distribute > 0 {
-        require!(amount_to_distribute >= _config.min_reflection_per_account, crate::errors::SolFlexError::InvalidParameters);
+    let batch_limit = distribution_config.limit as usize;
+    let mut recipients: Vec<AccountInfo<'_>> = Vec::new();
+    let mut last_processed = distribution_config.start_key;
 
-        // In full implementation, iterate through user preferences and check:
-        // for each user_preference in user_list {
-        //     if user_token_balance < config.min_reflection_per_account {
-        //         continue; // Skip accounts below minimum to prevent small transfers
-        //     }
-        //     // Process distribution for eligible accounts only
-        // }
+    for pair in ctx.remaining_accounts.chunks_exact(2) {
+        if recipients.len() >= batch_limit {
+            break;
+        }
 
-        fee_pool.distribute_reflection(amount_to_distribute)?;
+        let pref_info = &pair[0];
+        let recipient_token_info = &pair[1];
+        let user_pref: Account<UserPreferences> = Account::try_from(pref_info)?;
 
-        msg!("Distributed {} tokens in reflections", amount_to_distribute);
+        // Cursor-based batching.
+        if user_pref.owner <= distribution_config.start_key {
+            continue;
+        }
+        if user_pref.is_banned || config.is_blocklisted(user_pref.owner) {
+            continue;
+        }
+
+        // Default route always sends configured base asset.
+        // If a pool preference exists but is invalid/inactive, we gracefully fall back to default.
+        if user_pref.preferred_pool_id != 0 {
+            let pool_valid_and_active = global_pools
+                .get_pool(user_pref.preferred_pool_id)
+                .map(|p| p.is_active)
+                .unwrap_or(false);
+            if !pool_valid_and_active {
+                msg!(
+                    "Pool {} invalid/inactive for user {}, defaulting to configured asset",
+                    user_pref.preferred_pool_id,
+                    user_pref.owner
+                );
+            }
+        }
+
+        let recipient_token: Account<TokenAccount> = Account::try_from(recipient_token_info)?;
+        require!(
+            recipient_token.mint == distribution_config.token_mint
+                && recipient_token.owner == user_pref.owner,
+            crate::errors::SolFlexError::InvalidTokenAccount
+        );
+
+        recipients.push(recipient_token_info.to_account_info());
+        last_processed = user_pref.owner;
     }
 
-    // Handle burn and project fees
-    if fee_pool.burn_pool > 0 {
-        // TODO: Implement burn logic (could send to a burn address)
-        msg!("Burned {} tokens", fee_pool.burn_pool);
+    require!(
+        !recipients.is_empty(),
+        crate::errors::SolFlexError::NoEligibleAccounts
+    );
+
+    // Keep the existing "10% per run" throttle, then split across this batch.
+    let amount_to_distribute = fee_pool.reflection_pool / 10;
+    let per_recipient_amount = amount_to_distribute / recipients.len() as u64;
+    require!(
+        per_recipient_amount >= config.min_reflection_per_account,
+        crate::errors::SolFlexError::InvalidParameters
+    );
+
+    let signer_seeds: &[&[u8]] = &[FeePool::SEED_PREFIX, &[fee_pool.bump]];
+    for recipient in recipients.iter() {
+        let cpi_accounts = Transfer {
+            from: fee_vault.to_account_info(),
+            to: recipient.clone(),
+            authority: fee_pool.to_account_info(),
+        };
+        token::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                cpi_accounts,
+                &[signer_seeds],
+            ),
+            per_recipient_amount,
+        )?;
     }
 
-    if fee_pool.project_pool > 0 && distribution_config.project_account != Pubkey::default() {
-        // TODO: Transfer project fees to project account
-        msg!("Distributed {} tokens to project account", fee_pool.project_pool);
-    }
+    let distributed_total = per_recipient_amount * recipients.len() as u64;
+    fee_pool.distribute_reflection(distributed_total)?;
+    distribution_config.start_key = last_processed;
+    distribution_config.updated_at = Clock::get()?.unix_timestamp;
 
-    // Clear the pools after distribution
-    fee_pool.clear_pools();
-
-    msg!("Reflection distribution completed");
+    msg!(
+        "Distributed {} to {} holders, cursor={}",
+        per_recipient_amount,
+        recipients.len(),
+        distribution_config.start_key
+    );
 
     Ok(())
 }
