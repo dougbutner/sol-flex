@@ -4,6 +4,7 @@ use crate::state::{DistributionConfig, Config};
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct SetDistributionConfigParams {
     pub token_mint: Pubkey,
+    pub fee_vault: Pubkey,
     pub limit: u32,
     pub reflection_rate: u16,
     pub burn_rate: u16,
@@ -23,7 +24,7 @@ pub struct SetDistributionConfig<'info> {
     pub config: Account<'info, Config>,
 
     #[account(
-        init,
+        init_if_needed,
         payer = authority,
         space = 8 + DistributionConfig::INIT_SPACE,
         seeds = [DistributionConfig::SEED_PREFIX],
@@ -48,17 +49,21 @@ pub fn handler(ctx: Context<SetDistributionConfig>, params: SetDistributionConfi
     // Validate parameters
     require!(params.limit > 0 && params.limit <= 1000, crate::errors::SolFlexError::InvalidParameters);
 
-    // Initialize the distribution config
-    let bump = ctx.bumps.distribution_config;
-    **distribution_config = DistributionConfig::new(
-        params.token_mint,
-        params.project_account,
-        params.dev_account,
-        bump,
-    );
+    // Initialize once for first creation; afterwards this instruction updates in-place.
+    if distribution_config.created_at == 0 {
+        let bump = ctx.bumps.distribution_config;
+        **distribution_config = DistributionConfig::new(
+            params.token_mint,
+            params.fee_vault,
+            params.project_account,
+            params.dev_account,
+            bump,
+        );
+    }
 
     // Update configuration
     distribution_config.token_mint = params.token_mint;
+    distribution_config.fee_vault = params.fee_vault;
     distribution_config.limit = params.limit;
     distribution_config.reflection_rate = params.reflection_rate;
     distribution_config.burn_rate = params.burn_rate;

@@ -1,4 +1,5 @@
 pub mod initialize;
+pub mod initialize_global_pools;
 pub mod update_config;
 pub mod add_to_blocklist;
 pub mod remove_from_blocklist;
@@ -7,8 +8,10 @@ pub mod set_user_preferences;
 pub mod ban_user;
 pub mod manage_pool;
 pub mod set_distribution_config;
+pub mod record_fees;
 
 pub use initialize::*;
+pub use initialize_global_pools::*;
 pub use update_config::*;
 pub use add_to_blocklist::*;
 pub use remove_from_blocklist::*;
@@ -17,3 +20,4 @@ pub use set_user_preferences::*;
 pub use ban_user::*;
 pub use manage_pool::*;
 pub use set_distribution_config::*;
+pub use record_fees::*;

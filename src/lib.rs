@@ -16,6 +16,10 @@ pub mod sol_flex {
         instructions::initialize::handler(ctx)
     }
 
+    pub fn initialize_global_pools(ctx: Context<InitializeGlobalPools>) -> Result<()> {
+        instructions::initialize_global_pools::handler(ctx)
+    }
+
     pub fn update_config(ctx: Context<UpdateConfig>, params: UpdateConfigParams) -> Result<()> {
         instructions::update_config::handler(ctx, params)
     }
@@ -50,5 +54,9 @@ pub mod sol_flex {
 
     pub fn set_distribution_config(ctx: Context<SetDistributionConfig>, params: SetDistributionConfigParams) -> Result<()> {
         instructions::set_distribution_config::handler(ctx, params)
+    }
+
+    pub fn record_fees(ctx: Context<RecordFees>, params: RecordFeesParams) -> Result<()> {
+        instructions::record_fees::handler(ctx, params)
     }
 }

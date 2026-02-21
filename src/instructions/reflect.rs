@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
-use crate::state::{Config, DistributionConfig, FeePool, GlobalTokenPools, UserPreferences};
+use crate::state::{Config, DistributionConfig, GlobalTokenPools, UserPreferences};
 
 #[derive(Accounts)]
 pub struct Reflect<'info> {
@@ -18,17 +18,18 @@ pub struct Reflect<'info> {
 
     #[account(
         mut,
-        seeds = [FeePool::SEED_PREFIX],
-        bump = fee_pool.bump
-    )]
-    pub fee_pool: Account<'info, FeePool>,
-
-    #[account(
-        mut,
+        constraint = fee_vault.key() == distribution_config.fee_vault @ crate::errors::SolFlexError::InvalidTokenAccount,
         constraint = fee_vault.mint == distribution_config.token_mint @ crate::errors::SolFlexError::InvalidTokenAccount,
-        constraint = fee_vault.owner == fee_pool.key() @ crate::errors::SolFlexError::InvalidTokenAccount
+        constraint = fee_vault.owner == distribution_config.key() @ crate::errors::SolFlexError::InvalidTokenAccount
     )]
     pub fee_vault: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        constraint = dev_token_account.key() == distribution_config.dev_account @ crate::errors::SolFlexError::InvalidTokenAccount,
+        constraint = dev_token_account.mint == distribution_config.token_mint @ crate::errors::SolFlexError::InvalidTokenAccount
+    )]
+    pub dev_token_account: Account<'info, TokenAccount>,
+
 
     #[account(
         constraint = token_mint.key() == distribution_config.token_mint @ crate::errors::SolFlexError::InvalidTokenAccount
@@ -53,9 +54,9 @@ pub struct Reflect<'info> {
 pub fn handler(ctx: Context<Reflect>) -> Result<()> {
     let config = &ctx.accounts.config;
     let distribution_config = &mut ctx.accounts.distribution_config;
-    let fee_pool = &mut ctx.accounts.fee_pool;
     let global_pools = &ctx.accounts.global_pools;
     let fee_vault = &ctx.accounts.fee_vault;
+    let dev_token_account = &ctx.accounts.dev_token_account;
 
     require!(
         ctx.accounts.authority.key() == config.authority,
@@ -64,7 +65,7 @@ pub fn handler(ctx: Context<Reflect>) -> Result<()> {
 
     // Check if there are sufficient reflections to distribute
     require!(
-        fee_pool.reflection_pool >= config.min_reflection_pool,
+        distribution_config.reflection_pool >= config.min_reflection_pool,
         crate::errors::SolFlexError::NoReflectionsToDistribute
     );
 
@@ -84,7 +85,8 @@ pub fn handler(ctx: Context<Reflect>) -> Result<()> {
 
     let batch_limit = distribution_config.limit as usize;
     let mut recipients: Vec<AccountInfo<'_>> = Vec::new();
-    let mut last_processed = distribution_config.start_key;
+    let mut new_last_paid = distribution_config.last_paid;
+    let mut last_seen_owner: Option<Pubkey> = None;
 
     for pair in ctx.remaining_accounts.chunks_exact(2) {
         if recipients.len() >= batch_limit {
@@ -95,8 +97,14 @@ pub fn handler(ctx: Context<Reflect>) -> Result<()> {
         let recipient_token_info = &pair[1];
         let user_pref: Account<UserPreferences> = Account::try_from(pref_info)?;
 
+        // Require strictly increasing owner order to make cursoring deterministic.
+        if let Some(prev_owner) = last_seen_owner {
+            require!(user_pref.owner > prev_owner, crate::errors::SolFlexError::InvalidParameters);
+        }
+        last_seen_owner = Some(user_pref.owner);
+
         // Cursor-based batching.
-        if user_pref.owner <= distribution_config.start_key {
+        if user_pref.owner <= distribution_config.last_paid {
             continue;
         }
         if user_pref.is_banned || config.is_blocklisted(user_pref.owner) {
@@ -127,28 +135,34 @@ pub fn handler(ctx: Context<Reflect>) -> Result<()> {
         );
 
         recipients.push(recipient_token_info.to_account_info());
-        last_processed = user_pref.owner;
+        new_last_paid = user_pref.owner;
     }
 
-    require!(
-        !recipients.is_empty(),
-        crate::errors::SolFlexError::NoEligibleAccounts
-    );
+    if recipients.is_empty() {
+        // If nothing exists after the current cursor, reset for next cycle.
+        if distribution_config.last_paid != Pubkey::default() {
+            distribution_config.last_paid = Pubkey::default();
+            distribution_config.updated_at = Clock::get()?.unix_timestamp;
+            msg!("No eligible accounts after cursor; last_paid reset for next cycle");
+            return Ok(());
+        }
+        return Err(crate::errors::SolFlexError::NoEligibleAccounts.into());
+    }
 
     // Keep the existing "10% per run" throttle, then split across this batch.
-    let amount_to_distribute = fee_pool.reflection_pool / 10;
+    let amount_to_distribute = distribution_config.reflection_pool / 10;
     let per_recipient_amount = amount_to_distribute / recipients.len() as u64;
     require!(
         per_recipient_amount >= config.min_reflection_per_account,
         crate::errors::SolFlexError::InvalidParameters
     );
 
-    let signer_seeds: &[&[u8]] = &[FeePool::SEED_PREFIX, &[fee_pool.bump]];
+    let signer_seeds: &[&[u8]] = &[DistributionConfig::SEED_PREFIX, &[distribution_config.bump]];
     for recipient in recipients.iter() {
         let cpi_accounts = Transfer {
             from: fee_vault.to_account_info(),
             to: recipient.clone(),
-            authority: fee_pool.to_account_info(),
+            authority: distribution_config.to_account_info(),
         };
         token::transfer(
             CpiContext::new_with_signer(
@@ -161,15 +175,35 @@ pub fn handler(ctx: Context<Reflect>) -> Result<()> {
     }
 
     let distributed_total = per_recipient_amount * recipients.len() as u64;
-    fee_pool.distribute_reflection(distributed_total)?;
-    distribution_config.start_key = last_processed;
+    distribution_config.distribute_reflection(distributed_total)?;
+
+    // Dev pool payout is tracked separately and paid to the configured dev token account.
+    if distribution_config.dev_pool > 0 {
+        let dev_amount = distribution_config.dev_pool;
+        let dev_cpi_accounts = Transfer {
+            from: fee_vault.to_account_info(),
+            to: dev_token_account.to_account_info(),
+            authority: distribution_config.to_account_info(),
+        };
+        token::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                dev_cpi_accounts,
+                &[signer_seeds],
+            ),
+            dev_amount,
+        )?;
+        distribution_config.distribute_dev(dev_amount)?;
+    }
+
+    distribution_config.last_paid = new_last_paid;
     distribution_config.updated_at = Clock::get()?.unix_timestamp;
 
     msg!(
         "Distributed {} to {} holders, cursor={}",
         per_recipient_amount,
         recipients.len(),
-        distribution_config.start_key
+        distribution_config.last_paid
     );
 
     Ok(())
