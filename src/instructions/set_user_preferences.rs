@@ -5,8 +5,6 @@ use crate::state::UserPreferences;
 pub struct SetUserPreferencesParams {
     pub preferred_pool_id: u64,
     pub custom_memo: String,
-    pub tree_parent: Pubkey,
-    pub tree_rate: u16,
 }
 
 #[derive(Accounts)]
@@ -32,7 +30,6 @@ pub fn handler(ctx: Context<SetUserPreferences>, params: SetUserPreferencesParam
     let user = &ctx.accounts.user;
 
     // Validate parameters
-    require!(params.tree_rate <= 10000, crate::errors::SolFlexError::InvalidParameters);
     require!(params.custom_memo.len() <= 200, crate::errors::SolFlexError::InvalidMemoLength);
 
     // Initialize the user preferences
@@ -41,12 +38,6 @@ pub fn handler(ctx: Context<SetUserPreferences>, params: SetUserPreferencesParam
     // Update preferences
     user_preferences.preferred_pool_id = params.preferred_pool_id;
     user_preferences.custom_memo = params.custom_memo;
-    user_preferences.tree_parent = if params.tree_parent == Pubkey::default() {
-        user.key()
-    } else {
-        params.tree_parent
-    };
-    user_preferences.tree_rate = params.tree_rate;
     user_preferences.updated_at = Clock::get().unwrap().unix_timestamp;
 
     msg!("User preferences updated for {}", user.key());

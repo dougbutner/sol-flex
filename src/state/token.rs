@@ -63,8 +63,6 @@ pub struct UserPreferences {
     pub preferred_pool_id: u64, // User's preferred Jupiter swap pool ID (0 = default/no swap)
     #[max_len(200)]
     pub custom_memo: String, // Custom memo for reflections
-    pub tree_parent: Pubkey, // Inheritance tree parent
-    pub tree_rate: u16, // Inheritance rate (0-10000 basis points)
     pub is_banned: bool,
     pub created_at: i64,
     pub updated_at: i64,
@@ -79,8 +77,6 @@ impl UserPreferences {
             owner,
             preferred_pool_id: 0, // 0 = no preferred pool (default token)
             custom_memo: String::new(),
-            tree_parent: owner,
-            tree_rate: 10000, // 100% default
             is_banned: false,
             created_at: clock.unix_timestamp,
             updated_at: clock.unix_timestamp,

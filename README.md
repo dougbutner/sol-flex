@@ -94,7 +94,7 @@ Remaining accounts:
 - `FeePool`
   - reflection/burn/project/dev accumulators, total fees, bump
 - `UserPreferences`
-  - owner, `preferred_pool_id`, memo, tree fields, ban flag
+  - owner, `preferred_pool_id`, memo, ban flag
 - `GlobalTokenPools`
   - pool registry and authority
 
