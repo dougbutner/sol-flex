@@ -1,97 +1,119 @@
 # Sol Flex
 
-Sol Flex is an Anchor program that distributes rewards from a program-owned token vault.
-It is not a token contract and does not mint tokens. It only transfers tokens it already holds.
+Solana/Anchor program for reflection fee distribution with:
+
+- authority-managed configuration
+- blocklist and per-user ban controls
+- batch payout cursoring
+- optional pool preference metadata
+
+This program is a fee distribution contract, not a token contract.
 
 ## Program ID
 
 `5im5SdEc2dg63B5C9vm83mwQqxGUAphG2K47uGgA69ZS`
 
-## Current Instruction Set
+## Implemented Instructions
 
 - `initialize`
-  - Creates the `Config` PDA and sets the initial authority.
+  - Creates `Config` PDA.
 - `update_config`
   - Updates authority and reflection thresholds.
 - `set_distribution_config`
-  - Creates/sets distribution parameters (mint, rates, batch limit, payout accounts).
+  - Creates and sets `DistributionConfig` PDA (limit, rates, token mint, accounts).
 - `add_to_blocklist` / `remove_from_blocklist`
-  - Manages global blocklist entries in `Config`.
+  - Maintains global blocklist.
 - `set_user_preferences`
-  - Creates and updates per-user preferences.
+  - Creates `UserPreferences` PDA for a user and stores preferences.
 - `ban_user`
-  - Sets user ban status in `UserPreferences`.
+  - Sets per-user ban status.
 - `add_pool` / `remove_pool`
-  - Manages `GlobalTokenPools`.
+  - Maintains `GlobalTokenPools` registry.
 - `reflect`
-  - Executes batched reward distribution from the program vault.
+  - Executes batch reflection transfer in configured base asset.
 
-## Reflection Behavior (Implemented)
+## Reflection Behavior (Current)
 
-- Requires authority signer to match `Config.authority`.
+`reflect` currently does all of the following:
+
+- Requires signer to match `config.authority`.
 - Requires `fee_pool.reflection_pool >= config.min_reflection_pool`.
-- Processes recipients in batches:
-  - Uses `distribution_config.limit` as hard cap per call.
-  - Uses `distribution_config.start_key` as cursor (only owners greater than cursor are processed).
-  - Updates `distribution_config.start_key` to the last processed owner.
-- Skips users who are:
-  - globally blocklisted (`Config.blocklist`)
-  - banned (`UserPreferences.is_banned`)
-- Default payout behavior:
-  - Rewards are sent in the configured base token (`distribution_config.token_mint`).
-  - If a user has a non-zero `preferred_pool_id` and that pool is missing/inactive, payout falls back to default base token.
-- Payout amount model:
-  - Uses 10% of current `fee_pool.reflection_pool` per run.
-  - Splits evenly across eligible recipients in this batch.
-  - Enforces `per_recipient_amount >= config.min_reflection_per_account`.
-- Transfers are SPL token transfers from `fee_vault` to recipient token accounts, signed by the `fee_pool` PDA.
+- Uses batch cap `distribution_config.limit`.
+- Uses cursor `distribution_config.start_key`.
+- Reads remaining accounts in pairs:
+  - `[user_preferences, recipient_token_account]` repeated.
+- Skips users that are:
+  - behind/equal to cursor
+  - banned
+  - blocklisted
+- Handles pool preference:
+  - if `preferred_pool_id == 0`: default configured asset is used
+  - if `preferred_pool_id != 0` and pool is invalid/inactive: falls back to default configured asset
+  - if `preferred_pool_id != 0` and pool is valid/active: default configured asset is still used (no swap CPI yet)
+- Transfer amount:
+  - computes `amount_to_distribute = fee_pool.reflection_pool / 10`
+  - splits evenly across processed recipients
+  - enforces `per_recipient_amount >= config.min_reflection_per_account`
+- Performs SPL `token::transfer` from `fee_vault` to each recipient ATA using `fee_pool` PDA signer seeds.
+- Updates:
+  - `fee_pool.reflection_pool` (deduct distributed amount)
+  - `distribution_config.start_key` (last processed owner)
+  - `distribution_config.updated_at`
 
-## Required Accounts for `reflect`
+## Required `reflect` Accounts
 
-Fixed accounts:
+Primary accounts:
+
 - `config` PDA
 - `distribution_config` PDA
 - `fee_pool` PDA
-- `fee_vault` token account
-- `token_mint` mint account
+- `fee_vault` token account (mint == configured token mint, owner == `fee_pool` PDA)
+- `token_mint` account (must equal configured token mint)
 - `global_pools` PDA
 - `authority` signer
-- `token_program`
-- `system_program`
+- `token_program`, `system_program`
 
-Remaining accounts (strict pair layout):
-- `[user_preferences, recipient_token_account, user_preferences, recipient_token_account, ...]`
+Remaining accounts:
 
-Validation on each pair:
-- `recipient_token_account.mint == distribution_config.token_mint`
-- `recipient_token_account.owner == user_preferences.owner`
+- strict pair layout:
+  - `user_preferences`, `recipient_token_account`
+  - repeated N times
 
-## State Accounts
+## Current Non-Goals / Not Yet Implemented
+
+- Jupiter swap CPI execution is not implemented in `reflect` yet.
+- Burn/project/dev fee transfer execution is not implemented in `reflect`.
+- `reflect` does not create recipient token accounts; they must already exist.
+
+## Account Models
 
 - `Config`
-  - Authority, blocklist, reflection thresholds, bump.
+  - authority, blocklist, thresholds, bump
 - `DistributionConfig`
-  - Base token mint, cursor (`start_key`), batch limit, fee rates, payout accounts, bump.
+  - token mint, cursor (`start_key`), batch `limit`, fee rates, project/dev accounts, bump
 - `FeePool`
-  - Reflection/burn/project/dev pools, total fee counters, bump.
+  - reflection/burn/project/dev accumulators, total fees, bump
 - `UserPreferences`
-  - Preferred pool ID, memo, tree metadata, ban status.
+  - owner, `preferred_pool_id`, memo, tree fields, ban flag
 - `GlobalTokenPools`
-  - List of pool entries and authority.
-- `TokenPool`
-  - Pool id, mint/program/address, active flag.
-
-## Notes on Pool/Swap Routing
-
-- Pool metadata and user pool preferences are stored.
-- Actual swap execution is not implemented in `reflect` yet.
-- Current runtime behavior is safe fallback to default token payout when pool routing is not usable.
+  - pool registry and authority
 
 ## Constants and Limits
 
-- Max blocklist size: `1000`
-- Max memo length: `200`
-- Distribution limit bounds in `set_distribution_config`: `1..=1000`
+- `MAX_BLOCKLIST_SIZE = 1000`
+- `MAX_MEMO_LENGTH = 200`
+- Distribution limit validation: `1..=1000` in `set_distribution_config`
+
+PDA seed constants:
+
+- `CONFIG_SEED`
+- `TOKEN_ACCOUNT_SEED`
+- `TOKEN_POOL_SEED`
+- `USER_PREFERENCES_SEED`
+- `GLOBAL_POOLS_SEED`
+- `DISTRIBUTION_CONFIG_SEED`
+- `FEE_POOL_SEED`
+- `POSITION_SEED`
 
 ## Error Codes
 
@@ -112,7 +134,7 @@ Validation on each pair:
 - `InvalidTokenAccount`
 - `NoEligibleAccounts`
 
-## Build and Test
+## Build / Test / Deploy
 
 ```bash
 anchor build
